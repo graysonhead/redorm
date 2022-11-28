@@ -27,8 +27,9 @@
                 };
 
                 rustPkgs = pkgs.rustBuilder.makePackageSet {
-                    rustChannel = "1.60.0";
+                    rustChannel = "nightly";
                     packageFun = import ./Cargo.nix;
+                    extraRustComponents = ["clippy"];
                 };
 
                 workspaceShell = rustPkgs.workspaceShell {};

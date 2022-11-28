@@ -4,4 +4,17 @@ version = "0.1.0"
 edition = "2021"
 description = "redorm"
 
+[features]
+redis = ["dep:redis"]
+
 [dependencies]
+redorm_macros = { path = "redorm_macros" }
+redis = { version = "0.22.1", optional = true }
+
+[dev-dependencies]
+redis = { version = "0.22.1" }
+chrono = { version = "0.4.23" }
+
+[[example]]
+name = "server"
+required-features = ["redis"]
