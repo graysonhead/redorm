@@ -10,11 +10,18 @@ redis = ["dep:redis"]
 [dependencies]
 redorm_macros = { path = "redorm_macros" }
 redis = { version = "0.22.1", optional = true }
+async-trait = "0.1.58"
 
 [dev-dependencies]
+deadpool-redis = { version = "0.11.0" }
 redis = { version = "0.22.1" }
 chrono = { version = "0.4.23" }
+tokio = { version = "1.18.2", features = [ "full" ] }
 
 [[example]]
 name = "server"
+required-features = ["redis"]
+
+[[example]]
+name = "deadpool"
 required-features = ["redis"]

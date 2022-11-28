@@ -29,7 +29,7 @@ fn main() {
         genre: "Decadent".into(),
         nationality: "French".into(),
     };
-    // Create a redis client instance and get a connection
+    // Create a redis client instance and get a connection. Anything that implements redis::ConnectionLike is supported
     let client = redis::Client::open("redis://127.0.0.1:6379").unwrap();
     let mut con = client.get_connection().unwrap();
     // Store the struct in Redis
