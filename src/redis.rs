@@ -2,7 +2,7 @@ use redis::{self, ConnectionLike, RedisResult, aio::ConnectionLike as AsyncConne
 use crate::traits;
 use std::collections::HashMap;
 use async_trait::async_trait;
-
+use futures_util::StreamExt;
 #[async_trait]
 pub trait HSetRedis: traits::HashSet {
     fn hset<C>(&self, con: &mut C) -> Result<i32, redis::RedisError> 
@@ -49,4 +49,38 @@ pub trait HSetRedis: traits::HashSet {
         res.insert(Self::key_name(), format!("{}:{}", Self::get_prefix(), key.to_string()));
         Ok(Self::get_hset_from_args(&res))
     }
+
+    async fn hscan_keys_async<C>(con: &mut C) -> Result<Vec<String>, redis::RedisError>
+    where Self: Sized, C: AsyncConnectionLike + std::marker::Send
+    {
+        let mut res: Vec<String> = Vec::new();
+        let mut iterator: redis::AsyncIter<String> = redis::cmd("SCAN")
+            .cursor_arg(0)
+            .arg("MATCH")
+            .arg(format!("{}:*", Self::get_prefix()))
+            .arg("TYPE")
+            .arg("hash")
+            .clone()
+            .iter_async(con)
+            .await?;
+        while let Some(key) = iterator.next_item().await {
+            res.push(key)
+        }
+        Ok(res)
+    }
+
+    async fn hgetall_all_async<C>(con: &mut C) -> Result<Vec<Self>, redis::RedisError>
+    where Self: Sized, C: AsyncConnectionLike + std::marker::Send
+    {
+        let mut res: Vec<Self> = Vec::new();
+        let keys = Self::hscan_keys_async(con).await?;
+        for key in keys {
+            let key_no_prefix = key.to_string().replace(&format!("{}:", &Self::get_prefix()), "");
+            let item: Self = Self::hgetall_async(&key_no_prefix, con).await?;
+            res.push(item);
+        }
+        Ok(res)
+    }
 }
+
+    

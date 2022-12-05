@@ -11,6 +11,7 @@ redis = ["dep:redis"]
 redorm_macros = { path = "redorm_macros" }
 redis = { version = "0.22.1", optional = true }
 async-trait = "0.1.58"
+futures-util = { version = "0.3.25" }
 
 [dev-dependencies]
 deadpool-redis = { version = "0.11.0" }
@@ -24,4 +25,8 @@ required-features = ["redis"]
 
 [[example]]
 name = "deadpool"
+required-features = ["redis"]
+
+[[example]]
+name = "bulk_operations"
 required-features = ["redis"]

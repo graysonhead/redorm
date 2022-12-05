@@ -2,12 +2,14 @@ use crate::attributes::derive_attr;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::Fields::Named;
-use syn::{punctuated::Punctuated, token::Comma, Field, Ident, Meta, Type, PathArguments::AngleBracketed};
+use syn::{
+    punctuated::Punctuated, token::Comma, Field, Ident, Meta, PathArguments::AngleBracketed, Type,
+};
 
 #[derive(Clone)]
 struct FieldContainer {
     ident: Ident,
-    conversion_method: proc_macro2::TokenStream
+    conversion_method: proc_macro2::TokenStream,
 }
 
 pub fn derive_proc_macro_impl(input: TokenStream) -> TokenStream {
@@ -16,8 +18,9 @@ pub fn derive_proc_macro_impl(input: TokenStream) -> TokenStream {
         ident,
         fields,
         ..
-    } = syn::parse::<syn::ItemStruct>(input).unwrap();
-    let red_attr = derive_attr::Redorm::from_attributes(&attrs).unwrap();
+    } = syn::parse::<syn::ItemStruct>(input).expect("Failed to parse tokens");
+    let red_attr =
+        derive_attr::Redorm::from_attributes(&attrs).expect("Failed to unwrap attributes");
 
     let prefix = match red_attr.prefix_name {
         Some(lit) => match lit {
@@ -62,10 +65,15 @@ pub fn derive_proc_macro_impl(input: TokenStream) -> TokenStream {
     let key_ident = if let None = key_field_opt {
         panic!("No key specified");
     } else {
-        key_field_opt.clone().unwrap().ident.unwrap()
+        key_field_opt
+            .clone()
+            .expect("Failed to unwrap key field")
+            .ident
+            .expect("Failed to unwrap key field")
     };
 
-    let id_conversion_method = get_conversion_method(&key_field_opt.unwrap());
+    let id_conversion_method =
+        get_conversion_method(&key_field_opt.expect("Failed to get id conversion method"));
 
     let fields = fields
         .into_iter()
@@ -84,12 +92,12 @@ pub fn derive_proc_macro_impl(input: TokenStream) -> TokenStream {
             let nf = field.clone();
             let nf2 = nf.clone();
             FieldContainer {
-                ident: field.ident.unwrap(),
-                conversion_method: get_conversion_method(&nf2)
+                ident: field.ident.expect("Failed to unwrap key field ident"),
+                conversion_method: get_conversion_method(&nf2),
             }
         })
         .collect();
-    
+
     let attr_setters = get_attribute_setters(&fields);
     let attr_getters = get_attribute_getters(&fields);
 
@@ -107,7 +115,7 @@ pub fn derive_proc_macro_impl(input: TokenStream) -> TokenStream {
 
             fn get_hset_from_args(args: &HashMap<String, String>) -> Self {
                 let return_struct = Self {
-                    #key_ident: args.get(stringify!(#key_ident)).unwrap().clone()#id_conversion_method,
+                    #key_ident: args.get(stringify!(#key_ident)).expect("Couldn't find key arg in object hash map").clone()#id_conversion_method,
                     #(
                         #attr_getters
                     )*
@@ -141,19 +149,22 @@ pub fn derive_proc_macro_impl(input: TokenStream) -> TokenStream {
     .into()
 }
 
-fn get_attribute_getters(fields: &Vec<FieldContainer>) -> Vec<proc_macro2::TokenStream>{
+fn get_attribute_getters(fields: &Vec<FieldContainer>) -> Vec<proc_macro2::TokenStream> {
     let mut tokens: Vec<proc_macro2::TokenStream> = Vec::new();
     for field in fields {
-        let FieldContainer { ident, conversion_method } = field;
+        let FieldContainer {
+            ident,
+            conversion_method,
+        } = field;
         let token = quote! {
-            #ident: args.get(stringify!(#ident)).unwrap().clone()#conversion_method,
+            #ident: args.get(stringify!(#ident)).expect(&format!("Deserialization from redis failed, key {} not found in {:#?}", stringify!(#ident), &args)).clone()#conversion_method,
         };
         tokens.push(token);
     }
     tokens
 }
 
-fn get_attribute_setters(fields: &Vec<FieldContainer>) -> Vec<proc_macro2::TokenStream>{
+fn get_attribute_setters(fields: &Vec<FieldContainer>) -> Vec<proc_macro2::TokenStream> {
     let mut tokens: Vec<proc_macro2::TokenStream> = Vec::new();
     for field in fields {
         let FieldContainer { ident, .. } = field;
@@ -175,13 +186,13 @@ fn get_conversion_method(field: &Field) -> proc_macro2::TokenStream {
             "usize" | "u8" | "u16" | "u32" | "u64" | "u128" | "isize" | "i8" | "i16" | "i32"
             | "i64" | "i128" | "f32" | "f64" => {
                 quote! {
-                    .parse().unwrap()
+                    .parse().expect("Failed to serialize number to string")
                 }
             }
             "NaiveDate" | "NaiveTime" | "Time" => {
                 let ident = &path.path.segments[0].ident;
                 quote! {
-                    .parse::<#ident>().unwrap()
+                    .parse::<#ident>().expect("Failed to serialize timestamp to string")
                 }
             }
             // Support for DateTimes with Timezones
@@ -192,7 +203,7 @@ fn get_conversion_method(field: &Field) -> proc_macro2::TokenStream {
                         if let syn::Type::Path(tp) = ty {
                             let tz_ident = &tp.path.segments[0].ident;
                             return quote! {
-                                .parse::<#ident<#tz_ident>>().unwrap()
+                                .parse::<#ident<#tz_ident>>().expect("Failed to serialize timestamp to string")
                             };
                         }
                     }
@@ -201,9 +212,9 @@ fn get_conversion_method(field: &Field) -> proc_macro2::TokenStream {
             }
             _ => {
                 quote! {
-                    .try_into().unwrap()
+                    .try_into().expect("Failed to unwrap unknown type. Ensure that it implements From<String>")
                 }
-            },
+            }
         },
         _ => panic!("Unimplemented"),
     }
