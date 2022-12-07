@@ -9,7 +9,7 @@ redis = ["dep:redis"]
 
 [dependencies]
 redorm_macros = { path = "redorm_macros" }
-redis = { version = "0.22.1", optional = true }
+redis = { version = "0.22.1", optional = true, features = [ "acl", "aio", "geospatial", "script", "ahash", "cluster", "tokio-comp" ] }
 async-trait = "0.1.58"
 futures-util = { version = "0.3.25" }
 
